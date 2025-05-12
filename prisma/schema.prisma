@@ -17,7 +17,6 @@ model User {
   score        Int        @default(0)
   moves        Int        @default(30)
   moveResetAt  DateTime?  // Only this field is needed for reset logic
-  referralCode String     @unique
   tasks        Task[]
   referrals    Referral[]
   referredBy   Referral?  @relation("ReferredUser")

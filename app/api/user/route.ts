@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
                         username: user.username || '',
                         firstName: user.first_name || '',
                         lastName: user.last_name || '',
-                        referralCode: referralCode || '', // Use the passed referral code
                     },
                 });
                 console.log('New user created:', existingUser);
