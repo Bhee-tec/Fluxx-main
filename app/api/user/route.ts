@@ -1,4 +1,3 @@
-// /app/api/user/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -11,25 +10,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid user data' }, { status: 400 });
     }
 
+    const telegramId = Number(user.id);
+
+    // Check if the user already exists
     let existingUser = await prisma.user.findUnique({
-      where: { telegramId: user.id },
+      where: { telegramId },
     });
 
+    // If user doesn't exist, create new user
     if (!existingUser) {
       existingUser = await prisma.user.create({
         data: {
-          telegramId: user.id,
-          username: user.username || '',
-          firstName: user.first_name || '',
-          lastName: user.last_name || '',
+          telegramId,
+          username: user.username ?? '',
+          firstName: user.first_name ?? '',
+          lastName: user.last_name ?? '',
+          moveResetAt: new Date(), // Initialize it here if needed
         },
       });
     }
 
-    // Reset moves if 24h has passed
-    if (existingUser.moveResetAt && new Date(existingUser.moveResetAt).getTime() < Date.now() - 86400000) {
+    // Reset moves if 24 hours passed
+    if (
+      existingUser.moveResetAt &&
+      new Date(existingUser.moveResetAt).getTime() < Date.now() - 24 * 60 * 60 * 1000
+    ) {
       existingUser = await prisma.user.update({
-        where: { telegramId: user.id },
+        where: { telegramId },
         data: {
           moves: 30,
           moveResetAt: new Date(),
@@ -39,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(existingUser);
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('❌ Server Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

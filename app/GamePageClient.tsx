@@ -22,8 +22,9 @@ interface TelegramUser {
 }
 
 export default function GamePageClient() {
-  const [user, setUser] = useState<TelegramUser | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [initData, setInitData] = useState<string | null>(null);
   const [initialScore, setInitialScore] = useState<number>(0);
   const [initialMoves, setInitialMoves] = useState<number>(0);
 
@@ -41,12 +42,12 @@ export default function GamePageClient() {
         tg.ready();
         tg.expand();
 
-        const tgUser = tg.initDataUnsafe?.user;
-
-        if (!tgUser) {
+        if (!tg.initDataUnsafe?.user) {
           setError('Missing user authentication data');
           return;
         }
+
+        const userPayload: TelegramUser = tg.initDataUnsafe.user;
 
         const response = await fetch('/api/user', {
           method: 'POST',
@@ -55,10 +56,10 @@ export default function GamePageClient() {
           },
           body: JSON.stringify({
             user: {
-              id: tgUser.id,
-              username: tgUser.username,
-              first_name: tgUser.first_name,
-              last_name: tgUser.last_name,
+              id: userPayload.id,
+              username: userPayload.username,
+              first_name: userPayload.first_name,
+              last_name: userPayload.last_name,
             },
           }),
           signal: controller.signal,
@@ -71,6 +72,7 @@ export default function GamePageClient() {
 
         const userData = await response.json();
         setUser(userData);
+        setInitData(tg.initData);
         setInitialScore(userData.score || 0);
         setInitialMoves(userData.moves || 0);
       } catch (err) {
@@ -108,7 +110,7 @@ export default function GamePageClient() {
       <div className="max-h-fit bg-gradient-to-br p-4">
         <Suspense fallback={<Loading />}>
           <Game
-            userId={user.id.toString()}
+            userId={user.id} // this is Mongo's `_id` returned as string
             initialScore={initialScore}
             initialMoves={initialMoves}
           />
