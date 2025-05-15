@@ -9,22 +9,21 @@ import Loading from '@/app/loading';
 declare global {
   interface Window {
     Telegram: {
-      WebApp: WebApp
-    }
+      WebApp: WebApp;
+    };
   }
 }
 
 interface TelegramUser {
   id: number;
-  firstName?: string;
-  lastName?: string;
   username?: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 export default function GamePageClient() {
   const [user, setUser] = useState<TelegramUser | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [initData, setInitData] = useState<string | null>(null);
   const [initialScore, setInitialScore] = useState<number>(0);
   const [initialMoves, setInitialMoves] = useState<number>(0);
 
@@ -42,7 +41,9 @@ export default function GamePageClient() {
         tg.ready();
         tg.expand();
 
-        if (!tg.initDataUnsafe?.user) {
+        const tgUser = tg.initDataUnsafe?.user;
+
+        if (!tgUser) {
           setError('Missing user authentication data');
           return;
         }
@@ -53,10 +54,14 @@ export default function GamePageClient() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            initData: tg.initData,
-            user: tg.initDataUnsafe.user
+            user: {
+              id: tgUser.id,
+              username: tgUser.username,
+              first_name: tgUser.first_name,
+              last_name: tgUser.last_name,
+            },
           }),
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -66,7 +71,6 @@ export default function GamePageClient() {
 
         const userData = await response.json();
         setUser(userData);
-        setInitData(tg.initData);
         setInitialScore(userData.score || 0);
         setInitialMoves(userData.moves || 0);
       } catch (err) {
