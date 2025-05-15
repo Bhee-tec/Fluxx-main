@@ -42,24 +42,22 @@ export default function GamePageClient() {
         tg.ready();
         tg.expand();
 
-        if (!tg.initDataUnsafe?.user) {
+        const tgUser: TelegramUser | undefined = tg.initDataUnsafe?.user;
+
+        if (!tgUser?.id) {
           setError('Missing user authentication data');
           return;
         }
 
-        const userPayload: TelegramUser = tg.initDataUnsafe.user;
-
         const response = await fetch('/api/user', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user: {
-              id: userPayload.id,
-              username: userPayload.username,
-              first_name: userPayload.first_name,
-              last_name: userPayload.last_name,
+              id: tgUser.id,
+              username: tgUser.username,
+              first_name: tgUser.first_name,
+              last_name: tgUser.last_name,
             },
           }),
           signal: controller.signal,
@@ -75,9 +73,9 @@ export default function GamePageClient() {
         setInitData(tg.initData);
         setInitialScore(userData.score || 0);
         setInitialMoves(userData.moves || 0);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Telegram init error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load user data');
+        setError(err?.message || 'Failed to load user data');
       }
     };
 
@@ -93,7 +91,7 @@ export default function GamePageClient() {
           <p>
             {error.includes('Missing')
               ? 'Please open this page through your Telegram bot'
-              : 'Please try again or contact support'}
+              : 'An error occurred. Please try again or contact support.'}
           </p>
         </div>
         <Navbar />
@@ -110,7 +108,7 @@ export default function GamePageClient() {
       <div className="max-h-fit bg-gradient-to-br p-4">
         <Suspense fallback={<Loading />}>
           <Game
-            userId={user.id} // this is Mongo's `_id` returned as string
+            userId={user.id} // Mongo _id as string
             initialScore={initialScore}
             initialMoves={initialMoves}
           />

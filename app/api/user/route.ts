@@ -1,52 +1,41 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma'; // adjust path to your prisma instance
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { user } = body;
+    const telegramUser = body.user;
 
-    if (!user || !user.id) {
-      return NextResponse.json({ error: 'Invalid user data' }, { status: 400 });
+    if (!telegramUser?.id) {
+      return NextResponse.json({ error: 'Telegram user ID is required' }, { status: 400 });
     }
 
-    const telegramId = Number(user.id);
-
-    // Check if the user already exists
-    let existingUser = await prisma.user.findUnique({
-      where: { telegramId },
+    // Step 1: Check if user exists
+    let user = await prisma.user.findUnique({
+      where: { telegramId: telegramUser.id },
     });
 
-    // If user doesn't exist, create new user
-    if (!existingUser) {
-      existingUser = await prisma.user.create({
+    // Step 2: Create new user if not found
+    if (!user) {
+      user = await prisma.user.create({
         data: {
-          telegramId,
-          username: user.username ?? '',
-          firstName: user.first_name ?? '',
-          lastName: user.last_name ?? '',
-          moveResetAt: new Date(), // Initialize it here if needed
+          telegramId: telegramUser.id,
+          username: telegramUser.username,
+          firstName: telegramUser.first_name,
+          lastName: telegramUser.last_name,
         },
       });
     }
 
-    // Reset moves if 24 hours passed
-    if (
-      existingUser.moveResetAt &&
-      new Date(existingUser.moveResetAt).getTime() < Date.now() - 24 * 60 * 60 * 1000
-    ) {
-      existingUser = await prisma.user.update({
-        where: { telegramId },
-        data: {
-          moves: 30,
-          moveResetAt: new Date(),
-        },
-      });
+    return NextResponse.json(user);
+  } catch (error: any) {
+    console.error('Error creating user:', error);
+
+    // Handle unique constraint error
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: 'User already exists' }, { status: 409 });
     }
 
-    return NextResponse.json(existingUser);
-  } catch (error) {
-    console.error('❌ Server Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
