@@ -1,37 +1,55 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { user } = await req.json();
+    const {
+      telegramId,
+      username,
+      firstName,
+      lastName,
+    }: {
+      telegramId: number;
+      username?: string;
+      firstName?: string;
+      lastName?: string;
+    } = await req.json();
 
-    if (!user || !user.id) {
-      return NextResponse.json({ error: 'Missing Telegram user ID' }, { status: 400 });
+    // Validate input
+    if (!telegramId || typeof telegramId !== 'number') {
+      return NextResponse.json(
+        { message: 'Invalid telegramId' },
+        { status: 400 }
+      );
     }
 
-    const upsertedUser = await prisma.user.upsert({
-      where: { telegramId: user.id },
+    // Upsert user by telegramId
+    const user = await prisma.user.upsert({
+      where: { telegramId },
       update: {
-        username: user.username || '',
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
+        username,
+        firstName,
+        lastName,
         updatedAt: new Date(),
       },
       create: {
-        telegramId: user.id,
-        username: user.username || '',
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        telegramId,
+        username,
+        firstName,
+        lastName,
+        // other default fields if needed
       },
     });
 
-    return NextResponse.json(upsertedUser, { status: 200 });
-  } catch (error: any) {
-    console.error('API Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({
+      message: 'User created or updated successfully',
+      user,
+    });
+  } catch (error) {
+    console.error('User upsert error:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
