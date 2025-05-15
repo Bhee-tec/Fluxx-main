@@ -1,41 +1,37 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // adjust path to your prisma instance
+// Example: app/api/user/route.ts (for App Router)
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
 
-export async function POST(req: Request) {
+const prisma = new PrismaClient();
+
+export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const telegramUser = body.user;
+    const { user } = await req.json();
 
-    if (!telegramUser?.id) {
-      return NextResponse.json({ error: 'Telegram user ID is required' }, { status: 400 });
+    if (!user || !user.id) {
+      return NextResponse.json({ error: 'Missing Telegram user ID' }, { status: 400 });
     }
 
-    // Step 1: Check if user exists
-    let user = await prisma.user.findUnique({
-      where: { telegramId: telegramUser.id },
+    // Check if user already exists
+    let existingUser = await prisma.user.findUnique({
+      where: { telegramId: user.id },
     });
 
-    // Step 2: Create new user if not found
-    if (!user) {
-      user = await prisma.user.create({
+    if (!existingUser) {
+      // Create new user if they don't exist
+      existingUser = await prisma.user.create({
         data: {
-          telegramId: telegramUser.id,
-          username: telegramUser.username,
-          firstName: telegramUser.first_name,
-          lastName: telegramUser.last_name,
+          telegramId: user.id,
+          username: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
         },
       });
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json(existingUser, { status: 200 });
   } catch (error: any) {
-    console.error('Error creating user:', error);
-
-    // Handle unique constraint error
-    if (error.code === 'P2002') {
-      return NextResponse.json({ error: 'User already exists' }, { status: 409 });
-    }
-
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('API Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
