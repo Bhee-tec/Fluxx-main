@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     } = await req.json();
 
     // Validate input
-    if (!telegramId || typeof telegramId !== 'number') {
+    if (!telegramId || isNaN(telegramId)) {
       return NextResponse.json(
         { message: 'Invalid telegramId' },
         { status: 400 }
