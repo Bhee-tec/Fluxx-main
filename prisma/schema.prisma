@@ -17,38 +17,8 @@ model User {
   score        Int        @default(0)
   moves        Int        @default(30)
   moveResetAt  DateTime?  // Only this field is needed for reset logic
-  tasks        Task[]
-  referrals    Referral[]
-  referredBy   Referral?  @relation("ReferredUser")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@index([moveResetAt]) // Add index for faster queries
-}
-
-model Task {
-id            String       @id @default(auto()) @map("_id") @db.ObjectId
-userId        String       @db.ObjectId
-user          User         @relation(fields: [userId], references: [id])
-type          String       // 'deposit', 'withdrawal', 'reward'
-amount        String       // e.g., '+50 FLX'
-details       String       // e.g., 'Daily Bonus'
-date          DateTime
-status        String       // e.g., '🎉 Claimed'
-coinProgress  Float        @default(0.0) // Percentage for coin progress bar
-xpProgress    Float        @default(0.0) // Percentage for XP progress bar
-createdAt     DateTime     @default(now())
-updatedAt     DateTime     @updatedAt
-}
-
-model Referral {
-id            String       @id @default(auto()) @map("_id") @db.ObjectId
-referrerId    String       @db.ObjectId
-referrer      User         @relation(fields: [referrerId], references: [id])
-referredUserId String?     @unique @db.ObjectId
-referredUser  User?        @relation("ReferredUser", fields: [referredUserId], references: [id])
-earnings      Float        @default(0.0) // Earnings from this referral in FLX
-dateJoined    DateTime     @default(now())
-createdAt     DateTime     @default(now())
-updatedAt     DateTime     @updatedAt
 }
