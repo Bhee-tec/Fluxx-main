@@ -3,24 +3,22 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(req: Request) {
   try {
-    const {
-      telegramId,
-      username,
-      firstName,
-      lastName,
-    }: {
-      telegramId: number;
-      username?: string;
-      firstName?: string;
-      lastName?: string;
-    } = await req.json();
+    const body = await req.json();
+    console.log('🔍 Incoming Telegram payload:', body);
 
-    if (!telegramId || isNaN(telegramId)) {
+    const userData = body.user;
+
+    if (!userData || !userData.id) {
       return NextResponse.json(
-        { message: 'Invalid telegramId' },
+        { message: 'Missing or invalid Telegram user data' },
         { status: 400 }
       );
     }
+
+    const telegramId = userData.id;
+    const username = userData.username || null;
+    const firstName = userData.first_name || null;
+    const lastName = userData.last_name || null;
 
     const user = await prisma.user.upsert({
       where: { telegramId },
@@ -35,17 +33,24 @@ export async function POST(req: Request) {
         username,
         firstName,
         lastName,
+        // Default values will be applied for other fields like score, moves, etc.
       },
     });
 
     return NextResponse.json({
-      message: 'User created or updated successfully',
-      user,
+      id: user.id,
+      telegramId: user.telegramId,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      score: user.score,
+      points: user.points,
+      moves: user.moves,
     });
-  } catch (error) {
-    console.error('User upsert error:', error);
+  } catch (error: any) {
+    console.error('❌ Internal Server Error:', error);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: error.message || 'Internal server error' },
       { status: 500 }
     );
   }

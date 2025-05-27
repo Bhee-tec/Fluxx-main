@@ -5,16 +5,17 @@ import { useEffect, useState } from 'react';
 declare global {
   interface Window {
     Telegram: {
-      WebApp: WebApp
-    }
+      WebApp: WebApp;
+    };
   }
 }
 
 interface TelegramUser {
   id: number;
-  first_name?: string;
-  last_name?: string;
+  firstName?: string;
+  lastName?: string;
   username?: string;
+  score?: number;
 }
 
 interface HeaderProps {
@@ -40,10 +41,8 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
         tg.ready();
         tg.expand();
 
-        const tgUser = tg.initDataUnsafe?.user;
-
-        if (!tgUser) {
-          setError('Missing user authentication data');
+        if (!tg.initDataUnsafe?.user) {
+          setError('Missing Telegram user data');
           return;
         }
 
@@ -53,29 +52,26 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            telegramId: tgUser.id,
-            firstName: tgUser.first_name,
-            lastName: tgUser.last_name,
-            username: tgUser.username,
+            initData: tg.initData,
+            user: tg.initDataUnsafe.user,
           }),
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+          throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
         }
 
-        const data = await response.json();
-        setUser(data.user);
+        const userData = await response.json();
+        setUser(userData);
       } catch (err) {
-        console.error('User initialization error:', err);
+        console.error('⚠️ User initialization error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load user data');
       }
     };
 
     initializeApp();
-
     return () => controller.abort();
   }, []);
 
@@ -114,20 +110,19 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
                 className="absolute w-2 h-2 bg-yellow-400 rounded-full animate-float"
                 style={{
                   left: `${Math.random() * 100}%`,
-                  animationDelay: `${i * 0.5}s`
+                  animationDelay: `${i * 0.5}s`,
                 }}
               />
             ))}
           </div>
-
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-2xl animate-bounce">⚡</span>
             <div className="flex flex-col min-w-0">
               <span
                 className="font-bold text-white text-sm md:text-base truncate"
-                title={user.first_name || 'Anonymous'}
+                title={user.firstName || 'Anonymous'}
               >
-                {user.first_name}
+                {user.firstName}
               </span>
               <span className="font-bold text-yellow-300 text-sm md:text-base flex items-center truncate">
                 <span className="mr-1">🪙</span>
@@ -153,7 +148,7 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
       `}</style>
 
       <div aria-live="polite" className="sr-only">
-        User profile loaded: {user.first_name} - Balance: {balance.toFixed(2)} FLX
+        User profile loaded: {user.firstName} - Balance: {balance.toFixed(2)} FLX
       </div>
     </div>
   );
