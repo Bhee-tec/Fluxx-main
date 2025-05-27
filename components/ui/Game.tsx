@@ -6,30 +6,19 @@ import Header from '@/components/ui/Header';
 const COLORS = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-orange-500'] as const;
 type Color = typeof COLORS[number];
 
-type NotificationType = 'points' | 'error' | 'info';
-
-interface GameNotification {
+interface MatchNotification {
   id: number;
-  message: string;
+  points: number;
   x: number;
   y: number;
-  type: NotificationType;
 }
 
-interface GameProps {
-  userId: string;
-  initialScore: number;
-  initialMoves: number;
-  initialMoveResetAt?: Date | null;
-}
-
-export default function Game({ userId, initialScore, initialMoves, initialMoveResetAt }: GameProps) {
+export default function Game() {
   const [tiles, setTiles] = useState<Color[]>([]);
-  const [score, setScore] = useState<number>(initialScore);
-  const [moves, setMoves] = useState<number>(initialMoves);
-  const [moveResetAt, setMoveResetAt] = useState<Date | null>(initialMoveResetAt || null);
+  const [score, setScore] = useState<number>(0);
+  const [moves, setMoves] = useState<number>(30);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [notifications, setNotifications] = useState<GameNotification[]>([]);
+  const [notifications, setNotifications] = useState<MatchNotification[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const createBoard = useCallback(() => {
@@ -41,88 +30,14 @@ export default function Game({ userId, initialScore, initialMoves, initialMoveRe
     setTiles(newTiles);
   }, []);
 
-  const updateGameState = async (pointsEarned: number, movesUsed: number) => {
-    try {
-      const response = await fetch('/api/gameUpdate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          pointsEarned,
-          movesUsed
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update game');
-      }
-
-      const data = await response.json();
-      setMoves(data.remainingMoves);
-      setScore(data.newScore);
-      setMoveResetAt(data.nextReset ? new Date(data.nextReset) : null);
-    } catch (error) {
-      console.error('Game state sync failed:', error);
-      setScore(prev => prev - pointsEarned);
-      setMoves(prev => prev + movesUsed);
-    }
-  };
-
   useEffect(() => {
     createBoard();
-
-    // Check for move reset on component mount
-    if (moves === 0 && moveResetAt) {
-      const checkReset = async () => {
-        await updateGameState(0, 0);
-      };
-      checkReset();
-    }
+    const interval = setInterval(() => setMoves(30), 60 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [createBoard]);
 
-  useEffect(() => {
-    if (!moveResetAt) return;
-
-    const timeUntilReset = moveResetAt.getTime() - Date.now();
-    if (timeUntilReset <= 0) {
-      setMoves(30);
-      setMoveResetAt(null);
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      setMoves(30);
-      setMoveResetAt(null);
-    }, timeUntilReset);
-
-    return () => clearTimeout(timeout);
-  }, [moveResetAt]);
-
   const handleTileClick = (index: number) => {
-    if (isProcessing || moves <= 0) {
-      const tileElement = document.getElementById(`tile-${index}`);
-      if (tileElement) {
-        const rect = tileElement.getBoundingClientRect();
-        const message = moveResetAt 
-          ? `Moves reset in ${formatTime(moveResetAt)} ⏳`
-          : 'No moves left! ⏳';
-        
-        setNotifications(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            message,
-            x: rect.left + rect.width/2,
-            y: rect.top + rect.height/2,
-            type: 'info'
-          }
-        ]);
-      }
-      return;
-    }
+    if (isProcessing || moves <= 0) return;
 
     if (selectedIndex === null) {
       setSelectedIndex(index);
@@ -147,53 +62,22 @@ export default function Game({ userId, initialScore, initialMoves, initialMoveRe
 
   const swapTiles = async (index1: number, index2: number) => {
     setIsProcessing(true);
-    const tile1 = document.getElementById(`tile-${index1}`);
-    const tile2 = document.getElementById(`tile-${index2}`);
-    
-    // Animate swap
-    if (tile1 && tile2) {
-      const rect1 = tile1.getBoundingClientRect();
-      const rect2 = tile2.getBoundingClientRect();
-      const deltaX = rect2.left - rect1.left;
-      const deltaY = rect2.top - rect1.top;
+    setMoves(m => m - 1);
 
-      tile1.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-      tile2.style.transform = `translate(${-deltaX}px, ${-deltaY}px)`;
-      tile1.style.transition = tile2.style.transition = 'transform 0.3s ease-in-out';
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
-      tile1.style.transform = tile2.style.transform = '';
-      tile1.style.transition = tile2.style.transition = '';
-    }
-
+    // Perform swap
     const newTiles = [...tiles];
     [newTiles[index1], newTiles[index2]] = [newTiles[index2], newTiles[index1]];
     setTiles(newTiles);
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     const matches = findMatches(newTiles);
     if (matches.size > 0) {
-      const totalPoints = await handleMatches(matches);
-      await updateGameState(totalPoints, 1);
+      await handleMatches(matches);
     } else {
+      // Revert swap
       [newTiles[index1], newTiles[index2]] = [newTiles[index2], newTiles[index1]];
       setTiles([...newTiles]);
-
-      const tileElement = document.getElementById(`tile-${index1}`);
-      if (tileElement) {
-        const rect = tileElement.getBoundingClientRect();
-        setNotifications(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            message: 'Wrong Move! 😅',
-            x: rect.left + rect.width/2,
-            y: rect.top + rect.height/2,
-            type: 'error'
-          }
-        ]);
-      }
     }
     
     setIsProcessing(false);
@@ -236,10 +120,11 @@ export default function Game({ userId, initialScore, initialMoves, initialMoveRe
     return matched;
   };
 
-  const handleMatches = async (matched: Set<number>): Promise<number> => {
+  const handleMatches = async (matched: Set<number>) => {
     const pointsEarned = matched.size * 5;
     setScore(s => s + pointsEarned);
 
+    // Show notification
     const firstIndex = Array.from(matched)[0];
     const tileElement = document.getElementById(`tile-${firstIndex}`);
     if (tileElement) {
@@ -248,27 +133,25 @@ export default function Game({ userId, initialScore, initialMoves, initialMoveRe
         ...prev,
         {
           id: Date.now(),
-          message: `+${pointsEarned} Points! 🎉`,
+          points: pointsEarned,
           x: rect.left + rect.width/2,
-          y: rect.top + rect.height/2,
-          type: 'points'
+          y: rect.top + rect.height/2
         }
       ]);
     }
 
+    // Update tiles
     const newTiles = tiles.map((color, index) =>
       matched.has(index) ? COLORS[Math.floor(Math.random() * COLORS.length)] : color
     );
     setTiles(newTiles);
 
+    // Check for new matches
     await new Promise(resolve => setTimeout(resolve, 300));
     const newMatches = findMatches(newTiles);
-    let additionalPoints = 0;
     if (newMatches.size > 0) {
-      additionalPoints = await handleMatches(newMatches);
+      await handleMatches(newMatches);
     }
-
-    return pointsEarned + additionalPoints;
   };
 
   const hasPossibleMoves = (tileArray: Color[]) => {
@@ -285,19 +168,11 @@ export default function Game({ userId, initialScore, initialMoves, initialMoveRe
     return findMatches(temp).size > 0;
   };
 
-  const formatTime = (resetAt: Date) => {
-    const diff = resetAt.getTime() - Date.now();
-    if (diff <= 0) return '00:00';
-    const minutes = Math.floor((diff / 1000 / 60) % 60);
-    const seconds = Math.floor((diff / 1000) % 60);
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
-
   useEffect(() => {
     if (notifications.length > 0) {
       const timer = setTimeout(() => {
         setNotifications(prev => prev.slice(1));
-      }, 1500);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [notifications]);
@@ -305,12 +180,7 @@ export default function Game({ userId, initialScore, initialMoves, initialMoveRe
   return (
     <div className="max-w-md mx-auto mt-6 mb-6 relative">
       <Header score={score} />
-      <GameData 
-        score={score} 
-        currentMoves={moves} 
-        totalMoves={30}
-        resetTime={moveResetAt ? formatTime(moveResetAt) : ''}
-      />
+      <GameData score={score} currentMoves={moves} totalMoves={30} />
       
       <div className="grid grid-cols-8 gap-1 bg-white p-2 rounded-xl shadow-xl touch-pan-y">
         {tiles.map((color, index) => (
@@ -318,28 +188,34 @@ export default function Game({ userId, initialScore, initialMoves, initialMoveRe
             key={index}
             id={`tile-${index}`}
             onClick={() => handleTileClick(index)}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              handleTileClick(index);
+            }}
+            disabled={isProcessing || moves <= 0}
             className={`aspect-square rounded-lg transition-all duration-300 ${color}
               ${selectedIndex === index ? 'ring-4 ring-white scale-110' : ''}
               ${isProcessing || moves <= 0 ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
-            style={{ WebkitTapHighlightColor: 'transparent' }}
+            style={{
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation'
+            }}
           />
         ))}
       </div>
 
-      {notifications.map(({ id, message, x, y, type }) => (
+      {notifications.map(({ id, points, x, y }) => (
         <div
           key={id}
-          className={`fixed font-bold text-lg animate-float pointer-events-none
-            ${type === 'points' ? 'text-yellow-400' : ''}
-            ${type === 'error' ? 'text-red-500' : ''}
-            ${type === 'info' ? 'text-blue-400' : ''}`}
-          style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
+          className="fixed text-yellow-400 font-bold text-lg animate-float pointer-events-none"
+          style={{
+            left: `${x}px`,
+            top: `${y}px`,
+            transform: 'translate(-50%, -50%)'
+          }}
         >
-          {message}
-          <div className={`absolute inset-0 blur-sm rounded-full -z-10 
-            ${type === 'points' ? 'bg-yellow-400/20' : ''}
-            ${type === 'error' ? 'bg-red-500/20' : ''}
-            ${type === 'info' ? 'bg-blue-400/20' : ''}`} />
+          +{points}
+          <div className="absolute inset-0 bg-yellow-400/20 blur-sm rounded-full -z-10" />
         </div>
       ))}
 
