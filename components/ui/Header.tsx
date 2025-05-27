@@ -1,6 +1,6 @@
 'use client';
 import { WebApp } from "@twa-dev/types";
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 
 declare global {
   interface Window {
@@ -11,73 +11,73 @@ declare global {
 }
 
 interface TelegramUser {
-  id: number
-  firstName?: string
-  lastName?: string
-  username?: string
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
 }
 
 interface HeaderProps {
-  score: number
+  score: number;
 }
 
 export default function Header({ score }: HeaderProps): React.JSX.Element {
-  const [user, setUser] = useState<TelegramUser | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const balance = score / 10000
+  const [user, setUser] = useState<TelegramUser | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const balance = score / 10000;
 
   useEffect(() => {
-    const controller = new AbortController()
-    
+    const controller = new AbortController();
+
     const initializeApp = async () => {
       try {
-        // Check if running in Telegram context
         if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
-          setError('This app must be opened within Telegram')
-          return
+          setError('This app must be opened within Telegram');
+          return;
         }
 
-        const tg = window.Telegram.WebApp
-        tg.ready()
-        tg.expand() // Expand the WebApp to full height
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
 
-        // Validate user data presence
-        if (!tg.initDataUnsafe?.user) {
-          setError('Missing user authentication data')
-          return
+        const tgUser = tg.initDataUnsafe?.user;
+
+        if (!tgUser) {
+          setError('Missing user authentication data');
+          return;
         }
 
-        // Send both initData and user for backend validation
         const response = await fetch('/api/user', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            initData: tg.initData,
-            user: tg.initDataUnsafe.user
+            telegramId: tgUser.id,
+            firstName: tgUser.first_name,
+            lastName: tgUser.last_name,
+            username: tgUser.username,
           }),
           signal: controller.signal
-        })
+        });
 
-        // Handle HTTP errors
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
 
-        const userData = await response.json()
-        setUser(userData)
+        const data = await response.json();
+        setUser(data.user);
       } catch (err) {
-        console.error('User initialization error:', err)
-        setError(err instanceof Error ? err.message : 'Failed to load user data')
+        console.error('User initialization error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load user data');
       }
-    }
+    };
 
-    initializeApp()
+    initializeApp();
 
-    return () => controller.abort()
-  }, [])
+    return () => controller.abort();
+  }, []);
 
   if (error) {
     return (
@@ -85,7 +85,7 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
         ⚠️ {error}
         <div aria-live="polite" className="sr-only">Error: {error}</div>
       </div>
-    )
+    );
   }
 
   if (!user) {
@@ -100,18 +100,16 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
         </div>
         <div aria-live="polite" className="sr-only">Loading user data</div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="px-2 sm:px-4">
-      <div className="flex flex-col md:flex-row gap-2 md:gap-4 items-stretch mt-4 mb-4">
-        {/* User Profile Card */}
+      <div className="flex flex-col md:flex-row gap-2 md:gap-4 items-stretch mt-4 mb-1">
         <div className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl px-4 py-3 flex items-center flex-1 min-w-0 group relative overflow-hidden">
-          {/* Animated Background Elements */}
           <div className="absolute inset-0 flex justify-center items-center pointer-events-none">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div 
+              <div
                 key={i}
                 className="absolute w-2 h-2 bg-yellow-400 rounded-full animate-float"
                 style={{
@@ -121,16 +119,15 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
               />
             ))}
           </div>
-          
-          {/* User Content */}
+
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-2xl animate-bounce">⚡</span>
             <div className="flex flex-col min-w-0">
-              <span 
+              <span
                 className="font-bold text-white text-sm md:text-base truncate"
-                title={user.firstName || 'Anonymous'}
+                title={user.first_name || 'Anonymous'}
               >
-                {user.firstName}
+                {user.first_name}
               </span>
               <span className="font-bold text-yellow-300 text-sm md:text-base flex items-center truncate">
                 <span className="mr-1">🪙</span>
@@ -142,7 +139,6 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
         </div>
       </div>
 
-      {/* Global Animation Styles */}
       <style jsx global>{`
         @keyframes float {
           0% { transform: translateY(0) rotate(0deg); opacity: 1; }
@@ -156,10 +152,9 @@ export default function Header({ score }: HeaderProps): React.JSX.Element {
         .animate-bounce { animation: bounce 1s infinite; }
       `}</style>
 
-      {/* Accessibility Announcements */}
       <div aria-live="polite" className="sr-only">
-        User profile loaded: {user.firstName} - Balance: {balance.toFixed(2)} FLX
+        User profile loaded: {user.first_name} - Balance: {balance.toFixed(2)} FLX
       </div>
     </div>
-  )
+  );
 }

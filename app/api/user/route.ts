@@ -15,7 +15,6 @@ export async function POST(req: Request) {
       lastName?: string;
     } = await req.json();
 
-    // Validate input
     if (!telegramId || isNaN(telegramId)) {
       return NextResponse.json(
         { message: 'Invalid telegramId' },
@@ -23,7 +22,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Upsert user by telegramId
     const user = await prisma.user.upsert({
       where: { telegramId },
       update: {
@@ -37,7 +35,6 @@ export async function POST(req: Request) {
         username,
         firstName,
         lastName,
-        // other default fields if needed
       },
     });
 
