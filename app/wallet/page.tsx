@@ -78,7 +78,7 @@ const Wallet: React.FC = () => {
           <div className="flex justify-center items-center min-h-[60px] md:min-h-[80px]">
             {balance !== null ? (
               <div className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-cyan-400 text-center">
-                FLX{balance.toFixed(2)}
+                FLX {balance.toFixed(2)}
               </div>
             ) : (
               <div className="text-sm text-gray-400 animate-pulse">Loading...</div>
