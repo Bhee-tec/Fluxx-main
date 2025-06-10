@@ -2,16 +2,40 @@
 import React, { useEffect, useState } from 'react'
 import Navbar from '@/components/ui/Navbar'
 
+interface User {
+  points: any
+  id: string
+  username: string
+  score: number
+}
+
 export default function Leader() {
   const [mounted, setMounted] = useState(false)
-  const [xpValues, setXpValues] = useState<number[]>([])
-  const [progressValues, setProgressValues] = useState<number[]>([])
+  const [users, setUsers] = useState<User[]>([])
 
   useEffect(() => {
-    // Generate client-side only values
-    setXpValues(Array(100).fill(0).map(() => Math.floor(Math.random() * 1000)))
-    setProgressValues(Array(100).fill(0).map(() => Math.random() * 100))
-    setMounted(true)
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch('/api/user')
+        const data: User[] = await res.json()
+
+        // Calculate points and sort descending
+        const sortedUsers = data
+          .map(user => ({
+            ...user,
+            points: user.score / 10000
+          }))
+          .sort((a, b) => b.points - a.points)
+
+        setUsers(sortedUsers)
+      } catch (error) {
+        console.error('Failed to fetch users:', error)
+      } finally {
+        setMounted(true)
+      }
+    }
+
+    fetchUsers()
   }, [])
 
   return (
@@ -28,25 +52,25 @@ export default function Leader() {
           <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 mb-2">
             🏆 Leaderboard
           </h1>
-          <p className="text-gray-400">Top 100 Performers This Month</p>
+          <p className="text-gray-400">Top Performers This Month</p>
         </div>
 
-        {/* Scrollable Leaderboard Container */}
+        {/* Leaderboard */}
         <div className="bg-gradient-to-br from-[#0e1024]/90 to-[#1a1c2f]/90 rounded-2xl shadow-xl border border-white/10 backdrop-blur-lg h-[calc(100vh-220px)] overflow-y-auto">
           {/* Table Header */}
           <div className="sticky top-0 p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-b border-white/10 backdrop-blur-lg z-20">
             <div className="flex font-medium text-gray-400">
               <div className="w-16">Rank</div>
               <div className="flex-1">User</div>
-              <div className="w-32 text-right">Balance</div>
+              <div className="w-32 text-right">Points</div>
             </div>
           </div>
 
           {/* Users List */}
           <div className="divide-y divide-white/5">
-            {Array.from({ length: 100 }).map((_, index) => (
+            {users.map((user, index) => (
               <div 
-                key={index}
+                key={user.id}
                 className="flex items-center p-4 hover:bg-white/5 transition-all group cursor-pointer"
               >
                 {/* Rank */}
@@ -70,37 +94,20 @@ export default function Leader() {
                 {/* User Info */}
                 <div className="flex-1 flex items-center">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-white font-bold mr-3">
-                    {String.fromCharCode(65 + (index % 26))}
+                    {user.username.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <div className="font-medium text-white group-hover:text-cyan-300 transition-colors">
-                      user_{index + 1}
+                      {user.username}
                     </div>
-                    {mounted && (
-                      <div className="text-xs text-gray-400">
-                        Level {Math.floor(index/10 + 1)} 
-                        <span className="mx-1.5">·</span>
-                        {xpValues[index]} XP
-                      </div>
-                    )}
                   </div>
                 </div>
 
-                {/* Balance */}
+                {/* Points */}
                 <div className="w-32 text-right">
                   <div className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-cyan-400">
-                    ${(10000 - index * 100).toLocaleString()}
+                    {user.points.toFixed(2)} pts
                   </div>
-                  {mounted && (
-                    <div className="text-xs text-gray-400 mt-1">
-                      <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-500"
-                          style={{ width: `${progressValues[index]}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             ))}

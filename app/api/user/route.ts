@@ -1,6 +1,32 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export async function GET() {
+  try {
+    console.log('📡 GET /api/users called');
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        telegramId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        points: true,
+        score: true,
+        moves: true,
+      },
+    });
+    return NextResponse.json(users, { status: 200 });
+  } catch (error: any) {
+    console.error('❌ Error fetching users:', error);
+    return NextResponse.json(
+      { message: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -33,7 +59,6 @@ export async function POST(req: Request) {
         username,
         firstName,
         lastName,
-        // Default values will be applied for other fields like score, moves, etc.
       },
     });
 
